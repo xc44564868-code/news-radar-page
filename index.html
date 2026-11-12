@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>选题雷达</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 布局：一列选题单，顶部吸附的日期与筛选条；每条一张卡，标题最大，批示按钮在卡底 */
+:root {
+  --paper: #eef0f2;
+  --sheet: #fbfcfd;
+  --ink: #16202b;
+  --muted: #5b6673;
+  --rule: #d5dae0;
+  --pencil: #c2361f;
+  --pencil-soft: #f6dcd6;
+  --ok: #2f7a4f;
+  --ok-soft: #dcefe3;
+  --warn: #9a6a07;
+  --warn-soft: #f5ead0;
+  --bad: #a3392b;
+  --bad-soft: #f3dcd8;
+  --serif: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --sans: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12161b; --sheet: #1a2028; --ink: #e6e9ed; --muted: #9aa5b1; --rule: #2c3540;
+    --pencil: #ff6b57; --pencil-soft: #3a211d; --ok: #6fcf97; --ok-soft: #1c3226;
+    --warn: #e6b84f; --warn-soft: #362c14; --bad: #ff8a7a; --bad-soft: #3a201c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12161b; --sheet: #1a2028; --ink: #e6e9ed; --muted: #9aa5b1; --rule: #2c3540;
+  --pencil: #ff6b57; --pencil-soft: #3a211d; --ok: #6fcf97; --ok-soft: #1c3226;
+  --warn: #e6b84f; --warn-soft: #362c14; --bad: #ff8a7a; --bad-soft: #3a201c;
+  color-scheme: dark;
+}
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 15px; line-height: 1.6; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+.wrap { max-width: 760px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; }
+
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper); padding-block: 12px 10px; border-bottom: 1px solid var(--rule); display: grid; gap: 10px; }
+.brand { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font-family: var(--serif); font-weight: 800; font-size: 26px; letter-spacing: 0.04em; margin: 0; text-wrap: balance; }
+.head-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.brand .tally { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.tally b { color: var(--ink); font-weight: 500; }
+.mini-btn { font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--rule); background: var(--sheet); color: var(--muted); cursor: pointer; }
+.mini-btn:hover { color: var(--ink); border-color: var(--muted); }
+.row { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.chip.date { font-family: var(--mono); font-size: 12px; }
+.chip:focus-visible, button:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--pencil); outline-offset: 2px; }
+
+.setup { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 18px 16px; display: grid; gap: 12px; margin-top: 14px; }
+.setup[hidden] { display: none; }
+.setup h2 { font-family: var(--serif); font-size: 18px; margin: 0; }
+.setup p { margin: 0; font-size: 13px; color: var(--muted); }
+.setup .field { display: grid; gap: 4px; }
+.setup label { font-size: 12px; color: var(--muted); }
+.setup input { font: inherit; font-family: var(--mono); font-size: 13px; padding: 7px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); color: var(--ink); width: 100%; box-sizing: border-box; }
+.setup .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.setup button.primary { font: inherit; font-size: 14px; padding: 6px 16px; border-radius: 6px; border: 1px solid var(--pencil); background: var(--pencil); color: #fff; cursor: pointer; }
+.setup button.secondary { font: inherit; font-size: 14px; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; }
+
+main { display: grid; gap: 14px; margin-top: 16px; }
+.empty { background: var(--sheet); border: 1px dashed var(--rule); border-radius: 10px; padding: 28px 20px; color: var(--muted); }
+.empty h2 { font-family: var(--serif); color: var(--ink); font-size: 18px; margin: 0 0 6px; }
+.empty code { font-family: var(--mono); background: var(--paper); padding: 1px 6px; border-radius: 4px; color: var(--ink); }
+
+article.card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 16px 16px 14px; display: grid; gap: 10px; min-width: 0; position: relative; }
+article.card.use { border-color: var(--pencil); box-shadow: inset 4px 0 0 var(--pencil); }
+article.card.skip { opacity: 0.55; }
+.slug { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 12px; color: var(--muted); }
+.slug .no { font-family: var(--mono); color: var(--ink); }
+.tag { font-size: 12px; padding: 1px 8px; border-radius: 4px; background: var(--paper); color: var(--muted); }
+.zh { font-family: var(--mono); font-size: 12px; padding: 1px 8px; border-radius: 4px; }
+.zh.orphan { background: var(--ok-soft); color: var(--ok); }
+.zh.angle { background: var(--warn-soft); color: var(--warn); }
+.zh.stale { background: var(--bad-soft); color: var(--bad); }
+.level { font-size: 12px; color: var(--muted); }
+h2.title { font-family: var(--serif); font-weight: 600; font-size: 20px; line-height: 1.45; margin: 0; text-wrap: balance; }
+.alt { font-family: var(--serif); font-size: 16px; color: var(--muted); margin: 0; }
+.alt::before { content: "备选 · "; font-family: var(--sans); font-size: 12px; }
+.meta { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.meta span + span::before { content: "｜"; margin: 0 4px; color: var(--rule); }
+details.story summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+details.story p { margin: 6px 0 0; white-space: pre-wrap; }
+.sources { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; }
+.sources a { color: var(--ink); text-underline-offset: 3px; text-decoration-color: var(--rule); overflow-wrap: anywhere; }
+.note { font-size: 13px; color: var(--warn); margin: 0; }
+.mine { display: grid; gap: 6px; }
+.mine label { font-size: 12px; color: var(--muted); }
+.mine textarea { font: inherit; font-family: var(--serif); font-size: 16px; width: 100%; box-sizing: border-box; min-height: 2.6em; padding: 6px 10px; border: 1px solid var(--rule); border-radius: 6px; background: var(--paper); color: var(--ink); resize: vertical; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.actions button { font: inherit; font-size: 14px; padding: 6px 16px; border-radius: 6px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; }
+.actions button.use[aria-pressed="true"] { background: var(--pencil); border-color: var(--pencil); color: #fff; }
+.actions button.skip[aria-pressed="true"] { background: var(--muted); border-color: var(--muted); color: var(--sheet); }
+.actions .saved { font-size: 12px; color: var(--muted); margin-left: auto; }
+.actions .saved.err { color: var(--bad); }
+.status { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
+.status.err { color: var(--bad); }
+@media (prefers-reduced-motion: no-preference) { article.card { transition: opacity .2s, border-color .2s; } }
+@media (max-width: 420px) { h2.title { font-size: 18px; } .brand h1 { font-size: 22px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>选题雷达</h1>
+      <div class="head-right">
+        <div class="tally" id="tally">等待数据</div>
+        <button class="mini-btn" id="btn-refresh" type="button" title="从仓库重新拉取最新数据">↻ 刷新</button>
+        <button class="mini-btn" id="btn-setup" type="button" hidden>⚙ 密钥</button>
+      </div>
+    </div>
+    <div class="row" id="days" aria-label="日期"></div>
+    <div class="row" id="filters" aria-label="筛选">
+      <button class="chip" data-f="all" aria-pressed="true">全部</button>
+      <button class="chip" data-f="孤儿时政" aria-pressed="false">孤儿时政</button>
+      <button class="chip" data-f="战场离奇事" aria-pressed="false">战场离奇事</button>
+      <button class="chip" data-f="热点冷门角度" aria-pressed="false">热点冷门角度</button>
+      <button class="chip" data-f="pending" aria-pressed="false">只看没批的</button>
+    </div>
+  </header>
+
+  <section class="setup" id="setup" hidden>
+    <h2>连接私有选题库</h2>
+    <p>数据存放在你的 GitHub 私有仓库中，外人无法查看。首次在这台设备的浏览器打开时填入一次 Token，之后会自动记住。</p>
+    <div class="field">
+      <label for="inp-token">GitHub Token（仅保存在当前浏览器本地）</label>
+      <input id="inp-token" type="password" placeholder="github_pat_... 或 ghp_..." autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="inp-repo">数据仓库（owner/repo）</label>
+      <input id="inp-repo" type="text" value="xc44564868-code/news-news" spellcheck="false">
+    </div>
+    <div class="btn-row">
+      <button class="primary" id="btn-save-cfg" type="button">验证并连接</button>
+      <button class="secondary" id="btn-cancel-cfg" type="button" hidden>收起</button>
+    </div>
+  </section>
+
+  <p class="status" id="status" hidden></p>
+  <main id="list">
+    <div class="empty">
+      <h2>还没有加载选题</h2>
+      <p>跑完今天的选题并推送后，清单会出现在这里。每条都可以点「采用」或「不要」，也可以填等级（A/B/C/D）、理由或改写标题，下次跑选题时会自动读回样本库。</p>
+    </div>
+  </main>
+</div>
+
+<script>
+(() => {
+  const DEFAULT_REPO = "xc44564868-code/news-news";
+  const DEFAULT_BRANCH = "main";
+  const LS_TOKEN = "radar_gh_token";
+  const LS_REPO = "radar_gh_repo";
+  const DIRTY_PREFIX = "radar_dirty_";
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const el = (tag, cls, text) => {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+
+  // 支持 #token=... 一键免输导入，导入后立即抹除地址栏 hash
+  if (location.hash && location.hash.includes("token=")) {
+    const hp = new URLSearchParams(location.hash.slice(1));
+    const ht = (hp.get("token") || "").trim();
+    const hr = (hp.get("repo") || "").trim();
+    if (ht) localStorage.setItem(LS_TOKEN, ht);
+    if (hr) localStorage.setItem(LS_REPO, hr);
+    history.replaceState(null, "", location.pathname + location.search);
+  }
+
+  const isLocalApi =
+    location.protocol.startsWith("http") &&
+    (location.hostname === "127.0.0.1" || location.hostname === "localhost") &&
+    !new URLSearchParams(location.search).has("gh");
+
+  const state = {
+    mode: isLocalApi ? "local" : "github",
+    token: localStorage.getItem(LS_TOKEN) || "",
+    repo: localStorage.getItem(LS_REPO) || DEFAULT_REPO,
+    branch: DEFAULT_BRANCH,
+    days: [],
+    day: null,
+    items: [],
+    dayDocs: {},
+    dayShas: {},
+    dirty: {},
+    timers: {},
+    inFlight: {},
+    savedEls: {},
+    filter: "all",
+  };
+
+  function b64ToUtf8(b64) {
+    const bin = atob(b64.replace(/\s+/g, ""));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder("utf-8").decode(bytes);
+  }
+
+  function utf8ToB64(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(bin);
+  }
+
+  function status(msg, err) {
+    const s = $("#status");
+    s.hidden = !msg;
+    s.textContent = msg || "";
+    s.classList.toggle("err", !!err);
+  }
+
+  function loadDirtyFromStorage(day) {
+    if (state.dirty[day]) return state.dirty[day];
+    try {
+      const raw = localStorage.getItem(DIRTY_PREFIX + day);
+      state.dirty[day] = raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      state.dirty[day] = {};
+    }
+    return state.dirty[day];
+  }
+
+  function persistDirtyToStorage(day) {
+    const d = state.dirty[day] || {};
+    try {
+      if (Object.keys(d).length === 0) localStorage.removeItem(DIRTY_PREFIX + day);
+      else localStorage.setItem(DIRTY_PREFIX + day, JSON.stringify(d));
+    } catch (_) {}
+  }
+
+  function ghHeaders() {
+    return {
+      "Authorization": "Bearer " + state.token,
+      "Accept": "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    };
+  }
+
+  async function ghGetJson(path) {
+    const url = `https://api.github.com/repos/${state.repo}/contents/${path}?ref=${encodeURIComponent(state.branch)}`;
+    const r = await fetch(url, { headers: ghHeaders(), cache: "no-store" });
+    if (!r.ok) {
+      const err = new Error(`HTTP ${r.status}`);
+      err.status = r.status;
+      throw err;
+    }
+    const meta = await r.json();
+    const data = JSON.parse(b64ToUtf8(meta.content || ""));
+    return { data, sha: meta.sha };
+  }
+
+  async function ghPutJson(path, obj, sha, message) {
+    const url = `https://api.github.com/repos/${state.repo}/contents/${path}`;
+    const body = {
+      message,
+      content: utf8ToB64(JSON.stringify(obj, null, 1) + "\n"),
+      branch: state.branch,
+    };
+    if (sha) body.sha = sha;
+    const r = await fetch(url, {
+      method: "PUT",
+      headers: { ...ghHeaders(), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const err = new Error(`HTTP ${r.status}`);
+      err.status = r.status;
+      throw err;
+    }
+    return await r.json();
+  }
+
+  async function fetchDaysIndex() {
+    if (state.mode === "local") {
+      const r = await fetch("/api/days", { cache: "no-store" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      return (d.days || []).slice(0, 14);
+    }
+    const { data } = await ghGetJson("data/index.json");
+    return (data.days || []).slice(0, 14);
+  }
+
+  async function fetchDayDoc(day) {
+    if (state.mode === "local") {
+      const r = await fetch(`/api/day/${encodeURIComponent(day)}`, { cache: "no-store" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      return { data, sha: "" };
+    }
+    return await ghGetJson(`data/days/${day}.json`);
+  }
+
+  function applyDirtyPatches(doc, dirtyMap) {
+    const ids = Object.keys(dirtyMap || {});
+    if (!ids.length || !Array.isArray(doc.items)) return false;
+    let touched = false;
+    doc.items.forEach((it, idx) => {
+      const itemId = it.id || `${doc.date}-${String(it.order || idx + 1).padStart(2, "0")}`;
+      it.id = itemId;
+      if (dirtyMap[itemId]) {
+        Object.assign(it, dirtyMap[itemId]);
+        touched = true;
+      }
+    });
+    return touched;
+  }
+
+  function zhClass(n) { return n == null || n < 0 ? "" : n <= 2 ? "orphan" : n <= 10 ? "angle" : "stale"; }
+  function zhText(n) { return n == null || n < 0 ? "中文网未查" : n <= 2 ? `中文网 ${n} 篇 · 孤儿` : n <= 10 ? `中文网 ${n} 篇 · 要换角度` : `中文网 ${n} 篇 · 已写烂`; }
+
+  function renderDays() {
+    const box = $("#days");
+    box.textContent = "";
+    state.days.forEach(d => {
+      const b = el("button", "chip date", d.id.slice(5).replace("-", "月") + "日");
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(d.id === state.day));
+      b.title = d.id;
+      b.onclick = () => selectDay(d.id);
+      box.append(b);
+    });
+  }
+
+  function renderTally() {
+    const all = state.items.length;
+    if (!all) {
+      $("#tally").textContent = state.day ? `${state.day} · 0 条` : "等待数据";
+      return;
+    }
+    const use = state.items.filter(i => i.pick === "use").length;
+    const skip = state.items.filter(i => i.pick === "skip").length;
+    const t = $("#tally");
+    t.textContent = "";
+    t.append(
+      `${state.day} · 共 `, el("b", null, String(all)),
+      " 条 · 采用 ", el("b", null, String(use)),
+      " · 不要 ", el("b", null, String(skip)),
+      " · 待批 ", el("b", null, String(all - use - skip))
+    );
+  }
+
+  function markSavedStatus(day, itemIds, text, isErr) {
+    if (day !== state.day) return;
+    itemIds.forEach(id => {
+      const sEl = state.savedEls[id];
+      if (sEl) {
+        sEl.textContent = text;
+        sEl.classList.toggle("err", !!isErr);
+      }
+    });
+  }
+
+  function scheduleFlush(day) {
+    if (state.timers[day]) clearTimeout(state.timers[day]);
+    state.timers[day] = setTimeout(() => {
+      state.timers[day] = null;
+      flushDay(day);
+    }, 450);
+  }
+
+  async function flushDay(day) {
+    if (state.inFlight[day]) return;
+    const dirtyMap = loadDirtyFromStorage(day);
+    const snapshotIds = Object.keys(dirtyMap);
+    if (!snapshotIds.length) return;
+    const snapshot = {};
+    snapshotIds.forEach(id => { snapshot[id] = { ...dirtyMap[id] }; });
+
+    state.inFlight[day] = true;
+    markSavedStatus(day, snapshotIds, "保存中…", false);
+
+    try {
+      if (state.mode === "local") {
+        const r = await fetch(`/api/day/${encodeURIComponent(day)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patches: snapshot }),
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const updated = await r.json();
+        state.dayDocs[day] = updated;
+      } else {
+        let doc = state.dayDocs[day];
+        let sha = state.dayShas[day];
+        if (!doc || !sha) {
+          const fresh = await fetchDayDoc(day);
+          doc = fresh.data;
+          sha = fresh.sha;
+        }
+        applyDirtyPatches(doc, dirtyMap);
+        try {
+          const res = await ghPutJson(`data/days/${day}.json`, doc, sha, `批注 ${day}`);
+          state.dayDocs[day] = doc;
+          state.dayShas[day] = res.content && res.content.sha ? res.content.sha : sha;
+        } catch (putErr) {
+          if (putErr && (putErr.status === 409 || putErr.status === 422)) {
+            const fresh = await fetchDayDoc(day);
+            applyDirtyPatches(fresh.data, loadDirtyFromStorage(day));
+            const res2 = await ghPutJson(`data/days/${day}.json`, fresh.data, fresh.sha, `批注 ${day}`);
+            state.dayDocs[day] = fresh.data;
+            state.dayShas[day] = res2.content && res2.content.sha ? res2.content.sha : fresh.sha;
+          } else {
+            throw putErr;
+          }
+        }
+      }
+
+      // 清理本次已成功写入的快照（如果在写入期间用户又改了同一条，保留最新修改继续下一轮写入）
+      const curDirty = loadDirtyFromStorage(day);
+      const doneIds = [];
+      snapshotIds.forEach(id => {
+        const c = curDirty[id];
+        const s = snapshot[id];
+        if (c && c.pickedAt === s.pickedAt && c.pick === s.pick && c.userTitle === s.userTitle) {
+          delete curDirty[id];
+          doneIds.push(id);
+        }
+      });
+      persistDirtyToStorage(day);
+      markSavedStatus(day, doneIds, "已保存", false);
+      status("");
+    } catch (e) {
+      markSavedStatus(day, snapshotIds, "暂存本地，待重试", true);
+      status(`保存同步失败（${e.message || "网络异常"}），批注已暂存浏览器本地，点右上角「刷新」可自动重传。`, true);
+    } finally {
+      state.inFlight[day] = false;
+      if (Object.keys(loadDirtyFromStorage(day)).length > 0 && !state.timers[day]) {
+        // 若仍有新改动在排队（且不是刚失败的同一批），继续刷入
+        const remaining = loadDirtyFromStorage(day);
+        const hasNewer = Object.keys(remaining).some(id => !snapshot[id] || remaining[id].pickedAt !== snapshot[id].pickedAt);
+        if (hasNewer) scheduleFlush(day);
+      }
+    }
+  }
+
+  function recordChange(it, patch, cardEl, bu, bs, savedEl) {
+    const day = state.day;
+    const now = new Date().toISOString();
+    Object.assign(it, patch, { pickedAt: now, synced: false });
+
+    cardEl.classList.toggle("use", it.pick === "use");
+    cardEl.classList.toggle("skip", it.pick === "skip");
+    bu.setAttribute("aria-pressed", String(it.pick === "use"));
+    bs.setAttribute("aria-pressed", String(it.pick === "skip"));
+    savedEl.textContent = "保存中…";
+    savedEl.classList.remove("err");
+    renderTally();
+
+    const dirtyMap = loadDirtyFromStorage(day);
+    dirtyMap[it.id] = {
+      pick: it.pick || "",
+      userTitle: it.userTitle || "",
+      pickedAt: now,
+      synced: false,
+    };
+    persistDirtyToStorage(day);
+    scheduleFlush(day);
+  }
+
+  function card(it) {
+    const a = el("article", "card" + (it.pick === "use" ? " use" : it.pick === "skip" ? " skip" : ""));
+    const slug = el("div", "slug");
+    slug.append(el("span", "no", "#" + String(it.order || "").padStart(2, "0")));
+    if (it.kind) slug.append(el("span", "tag", it.kind));
+    if (it.dir) slug.append(el("span", "tag", it.dir));
+    if (it.side) slug.append(el("span", "tag", it.side));
+    const z = el("span", "zh " + zhClass(it.zh), zhText(it.zh));
+    if (it.zhNote) z.title = it.zhNote;
+    slug.append(z);
+    if (it.level) slug.append(el("span", "level", it.level === "实" ? "读过原文" : "只读到摘要或标题"));
+    a.append(slug);
+    a.append(el("h2", "title", it.title || "（无标题）"));
+    if (it.alt) a.append(el("p", "alt", it.alt));
+    const meta = el("div", "meta");
+    if (it.first) meta.append(el("span", null, it.first + " 首次披露"));
+    if (it.place) meta.append(el("span", null, it.place));
+    if (it.speaker) meta.append(el("span", null, it.speaker));
+    if (meta.childNodes.length) a.append(meta);
+    if (it.story) {
+      const d = el("details", "story");
+      d.append(el("summary", null, "经过与依据"));
+      d.append(el("p", null, it.story));
+      a.append(d);
+    }
+    if (Array.isArray(it.sources) && it.sources.length) {
+      const s = el("div", "sources");
+      it.sources.forEach(src => {
+        if (!src || !src.url) return;
+        const l = el("a", null, src.name || "来源");
+        l.href = src.url;
+        l.target = "_blank";
+        l.rel = "noopener";
+        s.append(l);
+      });
+      a.append(s);
+    }
+    if (it.note) a.append(el("p", "note", it.note));
+
+    const mine = el("div", "mine");
+    const tid = "mine-" + it.id;
+    const lab = el("label", null, "批注 / 等级 / 改写标题（如 A、B、C 或理由，下次跑自动读回样本库）");
+    lab.htmlFor = tid;
+    const ta = el("textarea");
+    ta.id = tid;
+    ta.rows = 2;
+    ta.value = it.userTitle || "";
+    mine.append(lab, ta);
+    a.append(mine);
+
+    const act = el("div", "actions");
+    const bu = el("button", "use", "采用");
+    bu.type = "button";
+    bu.setAttribute("aria-pressed", String(it.pick === "use"));
+    const bs = el("button", "skip", "不要");
+    bs.type = "button";
+    bs.setAttribute("aria-pressed", String(it.pick === "skip"));
+    const dirtyMap = loadDirtyFromStorage(state.day);
+    const saved = el("span", "saved", dirtyMap[it.id] ? "待同步…" : (it.pickedAt || it.pick ? "已保存" : ""));
+    state.savedEls[it.id] = saved;
+
+    bu.onclick = () => {
+      const nextPick = it.pick === "use" ? "" : "use";
+      const patch = { pick: nextPick };
+      if ((it.userTitle || "") !== ta.value.trim()) patch.userTitle = ta.value.trim();
+      recordChange(it, patch, a, bu, bs, saved);
+    };
+    bs.onclick = () => {
+      const nextPick = it.pick === "skip" ? "" : "skip";
+      const patch = { pick: nextPick };
+      if ((it.userTitle || "") !== ta.value.trim()) patch.userTitle = ta.value.trim();
+      recordChange(it, patch, a, bu, bs, saved);
+    };
+    ta.onchange = () => {
+      const val = ta.value.trim();
+      if ((it.userTitle || "") !== val) {
+        recordChange(it, { userTitle: val }, a, bu, bs, saved);
+      }
+    };
+    act.append(bu, bs, saved);
+    a.append(act);
+    return a;
+  }
+
+  function renderList() {
+    const list = $("#list");
+    state.savedEls = {};
+    if (!state.items.length) return;
+    const f = state.filter;
+    const shown = state.items.filter(i => f === "all" ? true : f === "pending" ? !i.pick : i.kind === f);
+    list.textContent = "";
+    if (!shown.length) {
+      const e = el("div", "empty");
+      e.append(el("h2", null, "这个筛选下没有条目"));
+      list.append(e);
+      return;
+    }
+    shown.forEach(it => list.append(card(it)));
+  }
+
+  async function selectDay(id, forceReload = false) {
+    if (!id) return;
+    state.day = id;
+    renderDays();
+    if (!forceReload && state.dayDocs[id]) {
+      state.items = state.dayDocs[id].items || [];
+      renderTally();
+      renderList();
+      return;
+    }
+    status(`正在读取 ${id} 选题…`);
+    try {
+      const { data, sha } = await fetchDayDoc(id);
+      const items = (data.items || []).map((it, idx) => ({
+        ...it,
+        id: it.id || `${id}-${String(it.order || idx + 1).padStart(2, "0")}`,
+      })).sort((a, b) => (a.order || 0) - (b.order || 0));
+      data.items = items;
+      const dirtyMap = loadDirtyFromStorage(id);
+      const hadDirty = applyDirtyPatches(data, dirtyMap);
+      state.dayDocs[id] = data;
+      state.dayShas[id] = sha;
+      if (state.day === id) {
+        state.items = items;
+        renderTally();
+        renderList();
+      }
+      status("");
+      if (hadDirty) flushDay(id);
+    } catch (e) {
+      status(`读取 ${id} 失败（${e.message || "网络错误"}）。请检查网络或密钥设置。`, true);
+    }
+  }
+
+  function showSetup(open, canCancel) {
+    const box = $("#setup");
+    box.hidden = !open;
+    $("#inp-token").value = state.token;
+    $("#inp-repo").value = state.repo;
+    $("#btn-cancel-cfg").hidden = !canCancel;
+  }
+
+  async function boot(forceReload = false) {
+    if (state.mode === "github") {
+      $("#btn-setup").hidden = false;
+      if (!state.token) {
+        showSetup(true, false);
+        status("请先填入 GitHub Token 以读取私有选题库。");
+        return;
+      }
+    }
+    status("正在同步日期列表…");
+    try {
+      state.days = await fetchDaysIndex();
+      renderDays();
+      showSetup(false, true);
+      if (!state.days.length) {
+        status("仓库里还没有选题数据。");
+        return;
+      }
+      const target = (state.day && state.days.some(d => d.id === state.day)) ? state.day : state.days[0].id;
+      await selectDay(target, forceReload);
+    } catch (e) {
+      if (state.mode === "github" && (e.status === 401 || e.status === 403 || e.status === 404)) {
+        showSetup(true, Boolean(state.days.length));
+        status(`连接仓库失败（HTTP ${e.status}）：请确认 Token 有效，且已授权 ${state.repo} 的 Contents 读写权限。`, true);
+      } else {
+        status(`同步日期列表失败：${e.message || "网络错误"}`, true);
+      }
+    }
+  }
+
+  $("#filters").addEventListener("click", e => {
+    const b = e.target.closest("button[data-f]");
+    if (!b) return;
+    state.filter = b.dataset.f;
+    document.querySelectorAll("#filters .chip").forEach(c => c.setAttribute("aria-pressed", String(c === b)));
+    renderList();
+  });
+
+  $("#btn-refresh").onclick = () => {
+    if (state.day) delete state.dayDocs[state.day];
+    boot(true);
+  };
+
+  $("#btn-setup").onclick = () => {
+    const box = $("#setup");
+    showSetup(box.hidden, true);
+  };
+
+  $("#btn-cancel-cfg").onclick = () => showSetup(false, true);
+
+  $("#btn-save-cfg").onclick = async () => {
+    const tk = $("#inp-token").value.trim();
+    const rp = ($("#inp-repo").value.trim() || DEFAULT_REPO).replace(/^https?:\/\/github\.com\//, "").replace(/\.git$/, "").replace(/\/+$/, "");
+    if (!tk) {
+      status("请填入 GitHub Token。", true);
+      return;
+    }
+    state.token = tk;
+    state.repo = rp;
+    localStorage.setItem(LS_TOKEN, tk);
+    localStorage.setItem(LS_REPO, rp);
+    state.dayDocs = {};
+    state.dayShas = {};
+    await boot(true);
+  };
+
+  window.addEventListener("beforeunload", e => {
+    const busy = Object.values(state.inFlight).some(Boolean) || Object.values(state.timers).some(Boolean);
+    if (busy) {
+      Object.keys(state.timers).forEach(d => {
+        if (state.timers[d]) {
+          clearTimeout(state.timers[d]);
+          state.timers[d] = null;
+          flushDay(d);
+        }
+      });
+      e.preventDefault();
+      e.returnValue = "";
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      Object.keys(state.timers).forEach(d => {
+        if (state.timers[d]) {
+          clearTimeout(state.timers[d]);
+          state.timers[d] = null;
+          flushDay(d);
+        }
+      });
+    }
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>
